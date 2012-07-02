@@ -38,22 +38,22 @@ def cells_adjacent_to_cell_in_direction(cells, cell, direction):
 		fn = lambda orig, check: orig[YMAX] == check[YMIN]
 	elif direction == "left":
 		fn = lambda orig, check: orig[XMIN] == check[XMAX]
-	
+
 	if fn:
 		return [c for c in cells if fn(cell, c)]
 	return None
 
 class PaneCommand(sublime_plugin.WindowCommand):
 	"Abstract base class for commands."
-	
+
 	def get_layout(self):
 		layout = self.window.get_layout()
 		print layout
 		cells = layout["cells"]
 		rows = layout["rows"]
-		cols = layout["cols"]	
+		cols = layout["cols"]
 		return rows, cols, cells
-	
+
 	def travel_to_pane(self, direction):
 		window = self.window
 		rows, cols, cells = self.get_layout()
@@ -62,37 +62,40 @@ class PaneCommand(sublime_plugin.WindowCommand):
 		if len(adjacent_cells) > 0:
 			new_view_index = cells.index(adjacent_cells[0])
 			window.focus_group(new_view_index)
-	
+		else:
+			self.create_pane(direction)
+			self.travel_to_pane(direction)
+
 	def carry_file_to_pane(self, direction):
 		view = self.window.active_view()
 		window = self.window
 		group = self.travel_to_pane(direction)
 		window.set_view_index(view, window.active_group(), 0)
-	
+
 	def clone_file_to_pane(self, direction):
 		self.window.run_command("clone_file")
 		self.carry_file_to_pane(direction)
-	
+
 	def create_pane(self, direction):
 		window = self.window
 		rows, cols, cells = self.get_layout()
 		current_group = window.active_group()
-		
+
 		old_cell = cells.pop(current_group)
 		new_cell = []
-		
+
 		if direction in ("up", "down"):
 			cells = push_down_cells_after(cells, old_cell[YMAX])
 			rows.insert(old_cell[YMAX], (rows[old_cell[YMIN]] + rows[old_cell[YMAX]]) / 2)
 			new_cell = [old_cell[XMIN], old_cell[YMAX], old_cell[XMAX], old_cell[YMAX]+1]
 			old_cell = [old_cell[XMIN], old_cell[YMIN], old_cell[XMAX], old_cell[YMAX]]
-		
+
 		elif direction in ("right", "left"):
 			cells = push_right_cells_after(cells, old_cell[XMAX])
 			cols.insert(old_cell[XMAX], (cols[old_cell[XMIN]] + cols[old_cell[XMAX]]) / 2)
 			new_cell = [old_cell[XMAX], old_cell[YMIN], old_cell[XMAX]+1, old_cell[YMAX]]
 			old_cell = [old_cell[XMIN], old_cell[YMIN], old_cell[XMAX], old_cell[YMAX]]
-		
+
 		if new_cell:
 			if direction in ("left", "up"):
 				focused_cell = new_cell
@@ -105,20 +108,20 @@ class PaneCommand(sublime_plugin.WindowCommand):
 			layout = {"cols": cols, "rows": rows, "cells": cells}
 			print layout
 			window.set_layout(layout)
-	
+
 	def destroy_pane(self, direction):
 		window = self.window
 		rows, cols, cells = self.get_layout()
 		current_group = window.active_group()
-		
+
 		cell_to_remove = None
 		current_cell = cells[current_group]
-		
+
 		adjacent_cells = cells_adjacent_to_cell_in_direction(cells, current_cell, direction)
 		print "number adjacent: ", len(adjacent_cells)
 		if len(adjacent_cells) == 1:
 			cell_to_remove = adjacent_cells[0]
-		
+
 		if cell_to_remove:
 			cells.remove(cell_to_remove)
 			if direction == "up":
